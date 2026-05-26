@@ -12,4 +12,4 @@ Content-Type: application/json
   "phoneNumber": "9876543210",
   "password": "Password@123",
   "confirmPassword": "Password@123"
-} 
+}
