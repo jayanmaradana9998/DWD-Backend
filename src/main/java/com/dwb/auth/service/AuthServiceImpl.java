@@ -127,4 +127,6 @@ public class AuthServiceImpl implements AuthService {
 
         return prefix + String.format("%06d", user.getId());
     }
+    
+    
 }
