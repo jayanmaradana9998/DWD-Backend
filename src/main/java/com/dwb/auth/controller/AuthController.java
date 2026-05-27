@@ -18,7 +18,8 @@ public class AuthController {
     @PostMapping("/register")
     public BaseResponse<Object> register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
-    }
+    }       
+    
 
     @PostMapping("/verify-email-otp")
     public BaseResponse<Object> verifyEmailOtp(@Valid @RequestBody VerifyEmailOtpRequest request) {
