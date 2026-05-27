@@ -7,9 +7,19 @@ POST http://localhost:8080/api/v1/auth/register
 Content-Type: application/json
 
 {
-  "fullName": "Janesh",
-  "email": "janesh@gmail.com",
-  "phoneNumber": "9876543210",
+  "fullName": "Janesh2",
+  "email": "janesh2@gmail.com",
+  "phoneNumber": "9876545220",
   "password": "Password@123",
   "confirmPassword": "Password@123"
-} 
+}
+
+###
+
+POST http://localhost:8080/api/v1/auth/verify-email-otp
+Content-Type: application/json
+
+{
+  "email": "janesh2@gmail.com",
+  "otp": "084449"
+}
