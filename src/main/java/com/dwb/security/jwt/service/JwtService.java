@@ -1,4 +1,4 @@
-package com.dwb.security.jwt;
+package com.dwb.security.jwt.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -57,4 +57,5 @@ public class JwtService {
                 .parseClaimsJws(token)
                 .getBody();
     }
+    
 }

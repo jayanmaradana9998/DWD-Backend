@@ -2,7 +2,7 @@ package com.dwb.auth.service;
 
 import com.dwb.auth.dto.LoginRequest;
 import com.dwb.auth.dto.LoginResponse;
-import com.dwb.security.jwt.JwtService;
+import com.dwb.security.jwt.service.JwtService;
 import com.dwb.user.entity.User;
 import com.dwb.user.entity.UserStatus;
 import com.dwb.user.repository.UserRepository;
