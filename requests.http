@@ -7,9 +7,9 @@ POST http://localhost:8080/api/v1/auth/register
 Content-Type: application/json
 
 {
-  "fullName": "Janesh2",
-  "email": "janesh2@gmail.com",
-  "phoneNumber": "9876545220",
+  "fullName": "Janes2",
+  "email": "janes2@gmail.com",
+  "phoneNumber": "9871545220",
   "password": "Password@123",
   "confirmPassword": "Password@123"
 }
@@ -20,6 +20,22 @@ POST http://localhost:8080/api/v1/auth/verify-email-otp
 Content-Type: application/json
 
 {
-  "email": "janesh2@gmail.com",
-  "otp": "127589"
+  "email": "janes2@gmail.com",
+  "otp": "318381"
 }
+
+###
+
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "janes2@gmail.com",
+  "password": "Password@123"
+}
+
+###
+
+GET http://localhost:8080/api/test
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW5lczJAZ21haWwuY29tIiwiaWF0IjoxNzc5OTQ4ODg1LCJleHAiOjE3Nzk5NTI0ODV9.Zf8W5C54_2ZzDQQKbNQQVI4MPuMA1VbHOfToHaG8GWc
