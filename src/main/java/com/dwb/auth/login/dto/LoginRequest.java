@@ -1,4 +1,4 @@
-package com.dwb.auth.dto;
+package com.dwb.auth.login.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

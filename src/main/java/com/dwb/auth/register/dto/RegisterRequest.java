@@ -1,4 +1,4 @@
-package com.dwb.auth.dto;
+package com.dwb.auth.register.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -19,17 +19,11 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Phone number is required")
-    @Pattern(
-            regexp = "^[0-9]{10}$",
-            message = "Phone number must be 10 digits"
-    )
+    @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be 10 digits")
     private String phoneNumber;
 
     @NotBlank(message = "Password is required")
-    @Size(
-            min = 8,
-            message = "Password must be at least 8 characters"
-    )
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
     @NotBlank(message = "Confirm password is required")

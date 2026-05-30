@@ -1,8 +1,8 @@
-package com.dwb.auth.controller;
+package com.dwb.auth.register.controller;
 
-import com.dwb.auth.dto.RegisterRequest;
-import com.dwb.auth.dto.VerifyEmailOtpRequest;
-import com.dwb.auth.service.AuthService;
+import com.dwb.auth.register.dto.RegisterRequest;
+import com.dwb.auth.register.dto.VerifyEmailOtpRequest;
+import com.dwb.auth.register.service.RegisterService;
 import com.dwb.common.dto.BaseResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,18 +11,17 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-public class AuthController {
+public class RegisterController {
 
-    private final AuthService authService;
+    private final RegisterService registerService;
 
     @PostMapping("/register")
     public BaseResponse<Object> register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
-    }       
-    
+        return registerService.register(request);
+    }
 
     @PostMapping("/verify-email-otp")
     public BaseResponse<Object> verifyEmailOtp(@Valid @RequestBody VerifyEmailOtpRequest request) {
-        return authService.verifyEmailOtp(request);
+        return registerService.verifyEmailOtp(request);
     }
 }

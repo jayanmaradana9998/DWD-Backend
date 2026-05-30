@@ -1,442 +1,388 @@
-# DWB Backend Master Handoff & Roadmap
+# DWB Backend — Master Handoff & Roadmap
 
-Digital Billing & Warranty — backend project context, current implementation status, and future roadmap for the team.
+**Last updated:** 2026-05-30
+**Backend developer:** Janesh (backend lead)
+**Frontend team:** Separate team (dbw-frontend, React + TypeScript + Vite)
 
-## 1. Project Overview
+---
 
-DWB (Digital Billing & Warranty) is a web-based appliance service and warranty management platform.
+## HOW TO USE THIS FILE
 
-The backend is being built for a responsive website that works well on desktop and mobile browsers. The backend is API-first, so the frontend can stay separate and consume REST APIs cleanly.
+If you are starting a new chat or a new developer is joining, read this file top to bottom. It contains every decision made, what is already built, what is next, and a ready-to-use context prompt at the bottom. You should be ready to build the next step without asking for background.
 
-The platform will support these user groups:
-- Retailers
-- Customers
-- Technicians
-- Admins
+---
 
-## 2. Final Technical Decisions
+## 1. What Is This Project?
 
-| Component | Decision |
-|---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 3 |
-| Build Tool | Maven |
-| Database | PostgreSQL |
-| ORM | Spring Data JPA / Hibernate |
-| Security | Spring Security + JWT |
-| Containerization | Docker |
-| Version Control | Git + GitHub |
-| IDE | VS Code |
-| DB Tool | DBeaver |
+**DWD (Digital Warranty & Billing)** — a web platform for appliance retailers to:
+- Onboard customers
+- Generate bills and invoices
+- Manage warranties
+- Assign technicians for service requests
+- Track rewards and payments
 
-## 3. Architecture Decision
+The platform has 4 user types: **Retailer, Customer, Technician, Admin**.
 
-### Selected Architecture: Modular Monolith
+We are building the **backend only**. The frontend is built separately by another team (React + TypeScript, lives in `dbw-frontend/` folder).
 
-We are intentionally **not** using microservices.
+---
 
-Why modular monolith fits this project:
-- The team is small
-- Development is faster
-- Debugging is easier
-- Deployment is simpler
-- The codebase still stays clean through domain separation
-- It can evolve later if the project grows
+## 2. Architecture Decisions (Final, Not Changing)
 
-### Project Style
-- One Spring Boot application
-- One PostgreSQL database
-- Domain-based package separation
-- Not multi-module Maven
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Architecture | Modular Monolith | Small team, easier to build and debug, can split later |
+| Language | Java 21 | |
+| Framework | Spring Boot 3.5.0 | |
+| Build | Maven | |
+| Database | PostgreSQL 17 | |
+| ORM | Spring Data JPA / Hibernate | |
+| Security | Spring Security + JWT (HS256) | |
+| Containers | Docker | |
+| API Docs | SpringDoc OpenAPI / Swagger | |
 
-## 4. Git / Team Workflow
+**We do NOT use:** microservices, multi-module Maven, GraphQL.
 
-Repository setup:
-- Git repository already created and connected
-- Team collaboration is active
-- Branching strategy is in place
+---
 
-Branches:
-- `main` → stable production-ready branch
-- `develop` → integration branch
-- `feature/*` → feature branches
+## 3. Key Design Decisions Made in Chat (Important for Future Developer)
 
-Rules:
-- Never commit directly to `main`
-- Keep commits small and meaningful
-- One feature per branch
-- Review before merging to `develop`
+### 3.1 Multi-Role Users
+- One user account can have **multiple roles** (RETAILER, CUSTOMER, TECHNICIAN, ADMIN)
+- Roles are stored in a **separate `user_roles` table** (not a column on `users`)
+- `user_roles` table: `user_id (FK) | role (VARCHAR)`
+- Why separate table: easy to query by role, JPA handles it via `@ElementCollection`, no schema change when adding future roles
+- Roles are **empty at registration** — user picks role after full verification
+- Role is added to the user record when they complete a role-specific profile (e.g. retailer profile)
 
-Example commit messages:
-- `feat: add health endpoint`
-- `feat: add user registration flow`
-- `fix: postgres uniqueId constraint`
-- `chore: update readme`
+### 3.2 Registration Flow (Two-Step Verification)
+Registration requires BOTH email AND phone verification before account becomes ACTIVE:
 
-## 5. Local Environment Setup
-
-Completed:
-- Java 21 installed
-- Maven installed and using Java 21
-- Docker installed
-- PostgreSQL running inside Docker
-- DBeaver installed
-- Spring Boot application runs successfully
-- Git workflow started
-
-## 6. Database Setup
-
-### Current Local PostgreSQL Port
-`5433`
-
-Port `5432` is already occupied on the machine, so Docker Postgres runs on `5433`.
-
-### docker-compose.yml
-
-```yaml
-services:
-  postgres:
-    image: postgres:17
-    container_name: dwb-postgres
-    environment:
-      POSTGRES_DB: dwb_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+```
+POST /api/v1/auth/register          → user saved (PENDING, empty roles)
+POST /api/v1/auth/verify-email-otp  → emailVerified = true (still PENDING)
+POST /api/v1/otp/send-phone-otp     → OTP sent to phone
+POST /api/v1/otp/verify-phone-otp   → phoneVerified = true → ACTIVE → uniqueId generated
+POST /api/v1/auth/login             → returns { token, uniqueId, roles }
 ```
 
-### application.yml
+### 3.3 UniqueId Format
+- Generated only after BOTH email + phone verified
+- Format: `USR000001` (generic, not role-based)
+- Why not role-based: role is not known at registration time
+- Role-specific IDs (like `RET000001`) will live on the individual profile entities (RetailerProfile, etc.), not on the User
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/dwb_db
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
+### 3.4 OTP Strategy
+- Currently: OTP is printed to **console** (development mode)
+- All OTPs are saved in DB — required for verification (backend must compare what it generated vs what user submitted)
+- Tables: `email_otps`, `phone_otps`
+- Future production plan: WhatsApp OTP via Twilio (cheaper + better delivery in India), Resend.com for email
+- `PhoneOtpType` enum: `REGISTRATION` (used during signup), `LOGIN` (used during phone login) — same table, different type
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+### 3.5 File Storage Strategy
+- Currently: local disk (`./uploads/` folder)
+- Abstracted via `StorageService` interface + `LocalStorageServiceImpl`
+- Future: swap to **Cloudflare R2** (10GB free forever, no egress fees, S3-compatible) — just add `R2StorageServiceImpl`, zero other code changes
+- File uploads needed for: KYC documents
 
-server:
-  port: 8080
+### 3.6 CORS
+- Configured for `http://localhost:5173` (frontend dev server)
+- Config in `application.yml` under `app.cors.allowed-origins`
+- Update this value for production deployment
+
+### 3.7 JWT
+- Secret lives in `application.yml` under `app.jwt.secret` (not hardcoded in Java)
+- Expiry: 1 hour (`app.jwt.expiration-ms: 3600000`)
+- Token payload: `email` + `roles` list
+- Algorithm: HS256
+
+### 3.8 Build Order (Agreed)
+Build **Retailer flow completely first**, then Customer, Technician, Admin.
+The frontend is ahead of the backend — backend must catch up to match frontend screens.
+
+---
+
+## 4. Database Setup
+
+| Config | Value |
+|--------|-------|
+| Container | `dwb-postgres` (Docker) |
+| Port | 5433 (5432 was already occupied on dev machine) |
+| Database | `dwb_db` |
+| Username | `postgres` |
+| Password | `postgres` |
+
+`ddl-auto: update` — Hibernate auto-creates/updates tables. **It never drops columns.** If you remove a field from an entity, manually drop the column in DB (example: `ALTER TABLE users DROP COLUMN IF EXISTS role;` — this was already needed and done in Phase 1).
+
+---
+
+## 5. Current Package Structure
+
+```
+src/main/java/com/dwb/
+│
+├── auth/
+│   ├── login/
+│   │   ├── controller/   LoginController.java
+│   │   ├── dto/          LoginRequest, LoginResponse
+│   │   │                 SendPhoneLoginOtpRequest, VerifyPhoneLoginOtpRequest
+│   │   └── service/      LoginService, LoginServiceImpl
+│   │                     PhoneLoginService, PhoneLoginServiceImpl
+│   │
+│   └── register/
+│       ├── controller/   RegisterController.java
+│       ├── dto/          RegisterRequest, VerifyEmailOtpRequest
+│       ├── entity/       EmailOtp.java
+│       ├── repository/   EmailOtpRepository.java
+│       └── service/      RegisterService, RegisterServiceImpl
+│
+├── otp/
+│   ├── controller/   OtpController.java
+│   ├── dto/          SendPhoneOtpRequest, VerifyPhoneOtpRequest
+│   ├── entity/       PhoneOtp.java, PhoneOtpType.java
+│   ├── repository/   PhoneOtpRepository.java
+│   └── service/      OtpService, OtpServiceImpl
+│
+├── storage/
+│   ├── service/   StorageService.java  (interface)
+│   └── impl/      LocalStorageServiceImpl.java
+│
+├── user/
+│   ├── entity/      User.java, UserStatus.java
+│   └── repository/  UserRepository.java
+│
+├── role/
+│   └── entity/      Role.java
+│
+├── security/
+│   ├── config/      SecurityConfig.java, SwaggerConfig.java
+│   └── jwt/
+│       ├── filter/  JwtAuthenticationFilter.java
+│       └── service/ JwtService.java
+│
+├── common/
+│   ├── controller/  HealthController.java
+│   ├── dto/         BaseResponse.java
+│   └── entity/      BaseEntity.java
+│
+├── config/      PasswordConfig.java
+└── exception/
+    ├── custom/  BadRequestException, ResourceNotFoundException
+    └── handler/ GlobalExceptionHandler
 ```
 
-## 7. Authentication Strategy
+**Adding a new module** (e.g. retailer): create `retailer/` folder with `controller/`, `dto/`, `entity/`, `repository/`, `service/` inside. Follow the same pattern.
 
-### Current Decision
-- Single role per user
-- Login via email + password
-- Email OTP verification is part of onboarding
-- Phone number is stored, but phone verification is postponed
+---
 
-This keeps the current implementation simple and stable.
+## 6. Completed API Endpoints
 
-### Current Onboarding Flow
-```text
-Register
-→ Email OTP Verification
-→ Account Activated
-→ Login
-→ Dashboard
-```
+### Public (no token needed)
 
-### Important Rule
-- Phone number is collected now
-- `phoneNumberVerified` exists and defaults to `false`
-- Phone verification will be added later if needed
+| Method | URL | What it does |
+|--------|-----|--------------|
+| GET | `/health` | Server health check |
+| POST | `/api/v1/auth/register` | Register: fullName, email, phoneNumber, password, confirmPassword |
+| POST | `/api/v1/auth/verify-email-otp` | Verify email OTP |
+| POST | `/api/v1/otp/send-phone-otp` | Send registration phone OTP |
+| POST | `/api/v1/otp/verify-phone-otp` | Verify phone OTP → account ACTIVE + uniqueId generated |
+| POST | `/api/v1/auth/login` | Email + password → JWT token |
+| POST | `/api/v1/auth/send-phone-login-otp` | Phone login step 1: send OTP |
+| POST | `/api/v1/auth/verify-phone-login-otp` | Phone login step 2: OTP → JWT token |
 
-## 8. Frontend-Driven Backend Strategy
-
-The backend is being shaped based on the frontend flow.
-
-Current frontend tells us:
-- Retailer registration is the starting entry point
-- Registration uses email OTP
-- The app is a website, but must work well on mobile browsers
-- Backend must support a pending → active account lifecycle
-- Backend response shape should fit frontend needs
-
-This means we build feature-by-feature, starting with the retailer onboarding flow.
-
-## 9. Current Domain / Entity Model
-
-### User Entity Fields
-- `fullName`
-- `email`
-- `phoneNumber`
-- `password`
-- `role`
-- `status`
-- `emailVerified`
-- `phoneNumberVerified`
-- `uniqueId`
-- `createdAt`
-- `updatedAt`
-
-### Important Rules
-- `emailVerified` defaults to `false`
-- `phoneNumberVerified` defaults to `false`
-- `status` starts as `PENDING`
-- `uniqueId` starts as `null`
-- `uniqueId` is generated only after successful activation
-- `uniqueId` must be readable and role-based
-
-### Role-based Unique ID Format
-- Retailer → `RET000001`
-- Customer → `CUS000001`
-- Technician → `TEC000001`
-- Admin → `ADM000001`
-
-### User Status Values
-- `PENDING`
-- `ACTIVE`
-- `BLOCKED`
-
-## 10. Current Implementation Status
-
-### Already Working
-- Git repository connected
-- Branching workflow active
-- Java 21 configured
-- Maven uses Java 21
-- Docker works
-- PostgreSQL works on port 5433
-- Spring Boot app starts successfully
-- Health endpoint works
-- Base response structure exists
-- Global exception handling exists
-- Security config exists
-- Base entity exists
-- Role enum exists
-- User status enum exists
-- User entity exists
-- User repository exists
-- Registration DTO exists
-- Auth controller exists
-- Registration service exists
-- Password hashing with BCrypt is wired
-- Email OTP flow is being added
-
-### Current In-Progress Area
-- Email OTP entity
-- Email OTP repository
-- Email OTP verification endpoint
-- Account activation
-- Unique ID generation after activation
-
-## 11. Current Package Structure
-
-```text
-src/main/java/com/dwb
-
-├── auth
-│   ├── controller
-│   ├── dto
-│   ├── entity
-│   ├── repository
-│   └── service
-│
-├── common
-│   ├── controller
-│   ├── dto
-│   └── entity
-│
-├── config
-├── exception
-│   ├── custom
-│   └── handler
-│
-├── role
-│   ├── entity
-│   └── repository
-│
-├── security
-│   └── config
-│
-└── user
-    ├── controller
-    ├── dto
-    ├── entity
-    ├── repository
-    └── service
-```
-
-## 12. Important Files / Concepts
-
-### BaseEntity
-Contains:
-- `id`
-- `createdAt`
-- `updatedAt`
-
-### BaseResponse<T>
-All API responses should follow a consistent structure:
-
+### Login Response Shape
 ```json
 {
   "success": true,
-  "message": "Some message",
-  "data": {}
+  "message": "Login successful",
+  "data": {
+    "token": "eyJ...",
+    "uniqueId": "USR000001",
+    "roles": ["RETAILER"]
+  }
 }
 ```
 
-### SecurityConfig
-- CSRF disabled
-- `/health` permitted publicly
-- `/api/v1/auth/**` will be public
-- other endpoints are protected
+---
 
-## 13. Current API Shape
+## 7. Database Tables (Auto-created by Hibernate)
 
-### Health API
-```http
-GET /health
+| Table | Purpose |
+|-------|---------|
+| `users` | Core user accounts |
+| `user_roles` | user_id + role (multi-role support) |
+| `email_otps` | Email OTP records for verification |
+| `phone_otps` | Phone OTP records (registration + login) |
+
+---
+
+## 8. What Needs to Be Built Next
+
+### Phase 2 — Retailer Onboarding (NEXT TO BUILD)
+
+The frontend has these retailer portal pages ready. Backend APIs needed:
+
+#### 8.1 Retailer Profile
+```
+POST /api/v1/retailer/register
+Auth: Bearer token
+Body: {
+  storeName, storeType, ownerName, phone, email,
+  address, city, state, pincode, gst, pan, operatingHours
+}
+Response: { retailerId, uniqueId: "RET000001" }
+```
+- Creates `RetailerProfile` entity linked to `User`
+- Adds `RETAILER` role to `user_roles`
+- Generates `RET000001` style ID on the profile
+
+Note: phone and email on retailer form are the same as the user's registered credentials. Frontend will show them read-only (pre-filled, disabled) if already verified.
+
+#### 8.2 KYC Submission
+```
+POST /api/v1/kyc/submit
+Auth: Bearer token
+Body: multipart/form-data {
+  fullName, idType (Aadhaar/PAN/Passport), idNumber, gstNumber, file (document image)
+}
+Response: { kycId, status: "PENDING" }
+```
+- Creates `KycDocument` entity
+- Saves file via `StorageService.store(file, "kyc/{userId}")`
+- KYC status: PENDING → APPROVED / REJECTED (admin approves later)
+
+```
+GET /api/v1/kyc/status
+Auth: Bearer token
+Response: { status, submittedAt }
 ```
 
-### Registration API
-```http
-POST /api/v1/auth/register
+#### 8.3 New Entities Needed
+- `RetailerProfile` — linked to `User`, stores store details
+- `KycDocument` — linked to `User`, stores KYC info + file path
+
+### Phase 3 — Core Business Flow
+
+```
+Customer:
+  POST /api/v1/customers               → create customer
+  GET  /api/v1/customers/search        → search by phone/email
+  POST /api/v1/customers/{id}/send-otp
+  POST /api/v1/customers/{id}/verify-otp
+
+Invoice:
+  POST /api/v1/invoices                → create with line items
+  GET  /api/v1/invoices                → list for this retailer
+  GET  /api/v1/invoices/{id}           → single invoice detail
+
+Warranty:
+  POST /api/v1/warranties              → create linked to invoice
+  GET  /api/v1/warranties              → list for this retailer
+
+Dashboard:
+  GET  /api/v1/dashboard/summary       → counts + recent transactions
 ```
 
-### Email OTP Verification API
-```http
-POST /api/v1/auth/verify-email-otp
+New entities: `Customer`, `Invoice`, `InvoiceItem`, `Warranty`
+
+### Phase 4 — Management Features
+
+```
+Agents (technicians under a retailer):
+  GET  /api/v1/agents
+  POST /api/v1/agents
+
+Templates:
+  GET  /api/v1/templates
+  POST /api/v1/templates
 ```
 
-## 14. Validation / DTO Strategy
+New entities: `Agent`, `Template`
 
-We are using DTOs for request input.
+### Phase 5 — Customer & Technician Flows
 
-Rules:
-- Do not expose JPA entities directly in API responses
-- Use validation annotations on request DTOs
-- Keep controller logic thin
-- Put business logic in services
+After retailer flow is complete, introduce customer-facing and technician-facing APIs.
 
-Current register request includes:
-- `fullName`
-- `email`
-- `phoneNumber`
-- `password`
-- `confirmPassword`
+---
 
-## 15. Password Strategy
+## 9. Future Technical Improvements (Plan For Later)
 
-Passwords are:
-- hashed using BCrypt
-- never stored in plain text
+| Item | When | Notes |
+|------|------|-------|
+| Real email sending | After retailer flow | Use **Resend.com** (3000 emails/month free) |
+| WhatsApp OTP | Before production | Twilio WhatsApp sandbox (cheaper than SMS in India) |
+| File storage → cloud | Before production | **Cloudflare R2** (10GB free forever, S3-compatible, just add `R2StorageServiceImpl`) |
+| Flyway migrations | Before production | Replace `ddl-auto: update` with proper migration scripts |
+| Refresh tokens | After core features | JWT refresh token flow |
+| Role-based endpoint protection | Phase 2 start | Use `@PreAuthorize("hasRole('RETAILER')")` on protected endpoints |
+| Admin panel APIs | Phase 5 | KYC approval, fraud detection, monitoring |
+| Dockerize backend app | Before production | Currently only DB is in Docker |
+| CI/CD | Before production | GitHub Actions |
 
-`confirmPassword` is only for request validation and is not stored.
+---
 
-## 16. Email OTP Flow (Current Next Major Feature)
+## 10. Entity Roadmap
 
-Planned behavior:
-1. User submits registration
-2. Backend creates a pending user
-3. Backend generates a 6-digit email OTP
-4. OTP is stored with expiry
-5. OTP is printed/logged for local development
-6. User submits OTP
-7. Backend marks email verified
-8. Backend activates account
-9. Backend generates role-based `uniqueId`
+| Entity | Phase | Status | Linked To |
+|--------|-------|--------|-----------|
+| `User` | 1 | ✅ Done | — |
+| `EmailOtp` | 1 | ✅ Done | User |
+| `PhoneOtp` | 1 | ✅ Done | User |
+| `RetailerProfile` | 2 | 🔲 Next | User |
+| `KycDocument` | 2 | 🔲 Next | User |
+| `Customer` | 3 | 🔲 Pending | RetailerProfile |
+| `Invoice` | 3 | 🔲 Pending | RetailerProfile, Customer |
+| `InvoiceItem` | 3 | 🔲 Pending | Invoice |
+| `Warranty` | 3 | 🔲 Pending | Invoice |
+| `Agent` | 4 | 🔲 Pending | RetailerProfile |
+| `Template` | 4 | 🔲 Pending | RetailerProfile |
 
-## 17. Unique ID Strategy
+---
 
-### Rules
-- `uniqueId` must remain `null` initially
-- It must be generated after activation
-- It must be based on the database ID
-- It must be unique
-- It should not be generated by counting rows
+## 11. Development Rules
 
-### Recommended Generation Style
-Example logic:
-- save user first
-- get database `id`
-- generate ID like `RET000001`, `CUS000001`, etc.
+- Business logic → **service layer only**
+- Database access → **repository only**
+- Request/response → **DTOs only** (never expose JPA entities in API responses)
+- Validation → annotations on request DTOs (`@NotBlank`, `@Email`, `@Pattern`, etc.)
+- Passwords → **BCrypt always**
+- Secrets → **`application.yml` only**, never hardcode in Java
+- Responses → always use `BaseResponse<T>` wrapper
+- Errors → throw `BadRequestException` or `ResourceNotFoundException` — `GlobalExceptionHandler` catches them
+- Commits → small and meaningful (`feat:`, `fix:`, `chore:`)
+- Never commit directly to `main`
 
-## 18. Current Roadmap
+---
 
-### Phase A — Foundation and Auth Base
-- Final clean package structure
-- BaseResponse and global exception handling
-- Validation and request DTOs
-- Retailer registration API
-- Email OTP generation and verification
-- Login API and JWT token generation
+## 12. Starter Prompt for a New Chat
 
-### Phase B — Retailer Features
-- Retailer profile
-- Dashboard summary
-- Product / appliance registration
-- Customer onboarding
-- Warranty registration
-- Service request creation
-- Billing and invoice data
+Copy and paste this at the start of a new conversation:
 
-### Phase C — Expansion
-- Customer-side flows
-- Technician assignment and service status
-- Notification system
-- Audit logs
-- Admin controls
-- Phone verification later if needed
-
-## 19. Immediate Coding Steps
-
-1. Finish email OTP entity/repository and verification endpoint
-2. Fix any persistence constraints around `uniqueId`
-3. Activate account after email OTP verification
-4. Generate role-based `uniqueId`
-5. Add login endpoint
-6. Add JWT generation
-7. Secure protected APIs
-8. Start retailer dashboard APIs
-
-## 20. Development Rules for the Team
-
-Do:
-- Keep commits small
-- Use feature branches
-- Use DTOs
-- Use service layer for business logic
-- Keep security centralized
-- Keep the backend API-first
-
-Do not:
-- Use microservices now
-- Overengineer early
-- Expose entities directly
-- Build all modules before auth
-- Change tech stack mid-project
-
-## 21. Starter Prompt for a New Chat
-
-Use this at the start of a new chat:
-
-```text
-We are building the DWB backend from scratch using Java 21, Spring Boot 3, Maven, PostgreSQL, Docker, and Git. We are using a modular monolith architecture, not microservices. We decided on single-role-per-user for now. Phone number is stored but not verified yet. Email OTP verification is part of onboarding. The backend is running successfully, PostgreSQL is on port 5433, the health endpoint works, and the users entity is already created. Current implementation includes BaseResponse, global exception handling, security config, BaseEntity, Role enum, UserStatus enum, User entity, UserRepository, registration DTO, AuthController, registration service, BCrypt password encoding, and work in progress for email OTP flow. We want to continue building from the retailer registration/login flow according to the frontend screens.
 ```
+We are building the DWB (Digital Warranty & Billing) backend.
+Stack: Java 21, Spring Boot 3.5.0, Maven, PostgreSQL 17, Spring Security + JWT, Docker.
+Architecture: Modular Monolith. No microservices.
 
-## 22. Current Status Summary
+COMPLETED (Phase 1):
+- Full auth flow: register → email OTP → phone OTP → account ACTIVE → login (email+password and phone+OTP)
+- Multi-role users: Set<Role> stored in separate user_roles table (user_id | role)
+- JWT includes email + roles, expiry 1 hour, secret from application.yml
+- UniqueId: USR000001 format, generated after both email + phone verified
+- OTP: console-printed for dev. DB tables: email_otps, phone_otps. Type enum: REGISTRATION / LOGIN
+- File storage: StorageService interface + LocalStorageServiceImpl (./uploads/). Future: swap to Cloudflare R2
+- CORS configured for http://localhost:5173
+- Package structure: auth/login/, auth/register/, otp/, storage/, user/, role/, security/, common/, exception/
 
-The foundation is in place and the backend is ready for the next auth milestones:
-- email OTP verification
-- account activation
-- role-based unique ID generation
-- login
-- JWT security
+DB: PostgreSQL on localhost:5433, database dwb_db, user postgres / password postgres.
+ddl-auto: update. NOTE: Hibernate never drops columns — do it manually if you remove entity fields.
+
+NEXT TO BUILD (Phase 2 — Retailer Onboarding):
+1. POST /api/v1/retailer/register — creates RetailerProfile entity linked to User, adds RETAILER role, generates RET000001 ID on profile
+2. POST /api/v1/kyc/submit — multipart form with document upload, uses StorageService, creates KycDocument entity
+3. GET  /api/v1/kyc/status — returns current KYC status for logged-in user
+
+New entities needed: RetailerProfile, KycDocument.
+Frontend is ready and waiting — build backend to match the frontend screens.
+Build Retailer flow completely before moving to Customer/Technician.
+Always explain changes after each file and ask for permission before modifying.
+```

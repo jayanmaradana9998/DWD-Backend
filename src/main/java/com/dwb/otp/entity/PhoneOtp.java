@@ -1,4 +1,4 @@
-package com.dwb.auth.entity;
+package com.dwb.otp.entity;
 
 import com.dwb.common.entity.BaseEntity;
 import com.dwb.user.entity.User;
@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "email_otps")
-public class EmailOtp extends BaseEntity {
+@Table(name = "phone_otps")
+public class PhoneOtp extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -29,4 +29,9 @@ public class EmailOtp extends BaseEntity {
 
     @Column(nullable = false)
     private Integer attempts = 0;
+
+    // Differentiates between registration verification and phone login OTP
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PhoneOtpType type;
 }
