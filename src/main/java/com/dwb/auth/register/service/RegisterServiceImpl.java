@@ -1,12 +1,11 @@
-package com.dwb.auth.service;
+package com.dwb.auth.register.service;
 
-import com.dwb.auth.dto.RegisterRequest;
-import com.dwb.auth.dto.VerifyEmailOtpRequest;
-import com.dwb.auth.entity.EmailOtp;
-import com.dwb.auth.repository.EmailOtpRepository;
+import com.dwb.auth.register.dto.RegisterRequest;
+import com.dwb.auth.register.dto.VerifyEmailOtpRequest;
+import com.dwb.auth.register.entity.EmailOtp;
+import com.dwb.auth.register.repository.EmailOtpRepository;
 import com.dwb.common.dto.BaseResponse;
 import com.dwb.exception.custom.BadRequestException;
-import com.dwb.role.entity.Role;
 import com.dwb.user.entity.User;
 import com.dwb.user.entity.UserStatus;
 import com.dwb.user.repository.UserRepository;
@@ -20,7 +19,7 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService {
+public class RegisterServiceImpl implements RegisterService {
 
     private final UserRepository userRepository;
     private final EmailOtpRepository emailOtpRepository;
@@ -33,15 +32,15 @@ public class AuthServiceImpl implements AuthService {
     public BaseResponse<Object> register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email already exists");
+            throw new BadRequestException("Email already registered");
         }
 
         if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
-            throw new BadRequestException("Phone number already exists");
+            throw new BadRequestException("Phone number already registered");
         }
 
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new BadRequestException("Password and confirm password do not match");
+            throw new BadRequestException("Passwords do not match");
         }
 
         User user = new User();
@@ -49,11 +48,8 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(request.getEmail());
         user.setPhoneNumber(request.getPhoneNumber());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.RETAILER); // keep retailer for now
         user.setStatus(UserStatus.PENDING);
-        user.setEmailVerified(false);
-        user.setPhoneNumberVerified(false);
-        user.setUniqueId(null);
+        // roles stays empty — user picks role after full verification
 
         User savedUser = userRepository.save(user);
 
@@ -63,18 +59,12 @@ public class AuthServiceImpl implements AuthService {
         emailOtp.setUser(savedUser);
         emailOtp.setOtp(otp);
         emailOtp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
-        emailOtp.setVerified(false);
-        emailOtp.setAttempts(0);
 
         emailOtpRepository.save(emailOtp);
 
         System.out.println("EMAIL OTP FOR " + savedUser.getEmail() + " : " + otp);
 
-        return new BaseResponse<>(
-                true,
-                "Registration successful. Email OTP sent.",
-                null
-        );
+        return new BaseResponse<>(true, "Registration successful. Please verify your email.", null);
     }
 
     @Override
@@ -98,35 +88,16 @@ public class AuthServiceImpl implements AuthService {
         emailOtp.setVerified(true);
         emailOtpRepository.save(emailOtp);
 
+        // Only mark email as verified — account stays PENDING until phone is also verified
         User user = emailOtp.getUser();
         user.setEmailVerified(true);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setUniqueId(generateUniqueId(user));
-
         userRepository.save(user);
 
-        return new BaseResponse<>(
-                true,
-                "Email verified successfully. Account activated.",
-                null
-        );
+        return new BaseResponse<>(true, "Email verified successfully. Please verify your phone number.", null);
     }
 
     private String generateOtp() {
         int otp = secureRandom.nextInt(1_000_000);
         return String.format("%06d", otp);
     }
-
-    private String generateUniqueId(User user) {
-        String prefix = switch (user.getRole()) {
-            case RETAILER -> "RET";
-            case CUSTOMER -> "CUS";
-            case TECHNICIAN -> "TEC";
-            case ADMIN -> "ADM";
-        };
-
-        return prefix + String.format("%06d", user.getId());
-    }
-    
-    
 }

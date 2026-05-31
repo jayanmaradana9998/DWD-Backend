@@ -1,395 +1,227 @@
-# DWD Backend 
+# DWD Backend
 
-Backend service for the DWD appliance service platform.
+Backend service for the DWD (Digital Warranty & Billing) appliance service platform.
 
-This repository contains the backend for a web-based appliance service and warranty management platform that is usable on desktop and mobile browsers.
-
-## Project Goal
-
-Build a clean, production-friendly backend for:
-
-- Retailers
-- Customers
-- Technicians
-- Admins
-
-The current development focus is retailer onboarding first, based on the frontend flow.
-
----
-
-## Current Architecture
-
-### Architecture Style
-
-**Modular Monolith**
-
-Why this choice:
-
-- Suitable for a small team
-- Easier to debug
-- Faster to build
-- Easier to learn and maintain
-- Good for a single backend app with multiple domains
-- Can later be split into microservices if truly needed
-
-### Not Using
-
-- Microservices
-- Multi-module Maven for now
-
-### App Style
-
-- Single Spring Boot application
-- API-first backend
-- Responsive web app backend
-- Built for desktop and mobile browser use
+A web-based platform for retailers to manage appliance billing, warranties, customers, and technicians. Works on desktop and mobile browsers.
 
 ---
 
 ## Tech Stack
 
-### Backend
-
-- Java 21
-- Spring Boot 3.5.0
-- Maven
-- Spring Security
-- Spring Data JPA / Hibernate
-- JWT authentication planned
-- PostgreSQL
-
-### Development Tools
-
-- VS Code
-- Docker
-- DBeaver
-- Git + GitHub
-
----
-
-## Current Completed Setup
-
-### Environment
-- Java 21 configured
-- Maven configured to use Java 21
-- Docker configured
-- PostgreSQL running via Docker
-- Spring Boot application running
-- Database connection working
-
-### Git
-- Git repository initialized
-- Branch workflow started
-- Collaborative team setup in place
-
-### Working Infrastructure
-- `/health` endpoint working
-- Spring Security base configuration in place
-- Base response structure created
-- Exception handling created
-- Core user entity created
-- Users table generated
-
----
-
-## Database Setup
-
-### PostgreSQL
-
-Docker container:
-
-- Container name: `dwb-postgres`
-- Database: `dwb_db`
-- Username: `postgres`
-- Password: `postgres`
-
-### Local Port
-
-PostgreSQL is mapped to:
-
-```text
-5433
-```
-
-because port `5432` is already in use on the machine.
-
-### `docker-compose.yml`
-
-```yaml
-services:
-  postgres:
-    image: postgres:17
-    container_name: dwb-postgres
-    restart: always
-    environment:
-      POSTGRES_DB: dwb_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-### `application.yml`
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/dwb_db
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-
-server:
-  port: 8080
-```
-
----
-
-## Git Workflow
-
-### Branches
-
-- `main` → stable production code
-- `develop` → integration branch
-- `feature/*` → feature branches
-
-### Rules
-
-- Never commit directly to `main`
-- Use one feature per branch
-- Keep commits small and meaningful
-- Merge only after review/testing
-
-### Commit Examples
-
-```text
-feat: add health endpoint
-feat: configure security
-feat: add user entity
-fix: resolve postgres datasource issue
-chore: setup docker postgres
-```
-
----
-
-## Current Architecture Structure
-
-```text
-src/main/java/com/dwb
-
-├── auth
-│   ├── controller
-│   ├── dto
-│   ├── entity
-│   ├── repository
-│   └── service
-│
-├── common
-│   ├── controller
-│   ├── dto
-│   └── entity
-│
-├── config
-├── exception
-│   ├── custom
-│   └── handler
-│
-├── role
-│   ├── entity
-│   └── repository
-│
-├── security
-│   └── config
-│
-└── user
-    ├── controller
-    ├── dto
-    ├── entity
-    ├── repository
-    └── service
-```
-
----
-
-## Authentication Strategy
-
-### Current Decision
-
-**Single role per user**
-
-Why:
-
-- Simpler implementation
-- Easier JWT logic
-- Easier frontend integration
-- Easier authorization rules
-
-Future multi-role support can be added later if needed.
-
-### Current Registration Flow
-
-```text
-Register
-→ Email OTP Verification
-→ Account Activated
-→ Login
-→ Dashboard
-```
-
-### Phone Number Verification
-
-- Phone number is collected and stored
-- Phone verification is postponed for later
-- `phoneNumberVerified` is kept in the model and defaults to `false`
-
----
-
-## Current Domain Model
-
-### `users` table fields
-
-- `id`
-- `full_name`
-- `email`
-- `phone_number`
-- `password`
-- `role`
-- `status`
-- `email_verified`
-- `phone_number_verified`
-- `unique_id`
-- `created_at`
-- `updated_at`
-
-### Important Rules
-
-- `email_verified` defaults to `false`
-- `phone_number_verified` defaults to `false`
-- `status` starts as `PENDING`
-- `unique_id` starts as `NULL`
-- `unique_id` is generated after successful activation
-- `unique_id` must be unique and human-readable
-
-### Status Enum
-
-```java
-PENDING
-ACTIVE
-BLOCKED
-```
-
-### Role Enum
-
-```java
-RETAILER
-CUSTOMER
-TECHNICIAN
-ADMIN
-```
-
-### Unique ID Format
-
-Generated after activation using the database id:
-
-- `RET000001`
-- `CUS000001`
-- `TEC000001`
-- `ADM000001`
-
-### Prefix Mapping
-
-| Role | Prefix |
+| Layer | Choice |
 |---|---|
-| RETAILER | RET |
-| CUSTOMER | CUS |
-| TECHNICIAN | TEC |
-| ADMIN | ADM |
+| Language | Java 21 |
+| Framework | Spring Boot 3.5.0 |
+| Build | Maven |
+| Database | PostgreSQL 17 |
+| ORM | Spring Data JPA / Hibernate |
+| Security | Spring Security + JWT (HS256) |
+| Containers | Docker |
+| Docs | SpringDoc OpenAPI / Swagger |
+| IDE | VS Code |
+| DB Tool | DBeaver |
 
 ---
 
-## Current Implemented Backend Pieces
+## Architecture
 
-### Core
-- `BaseEntity`
-- `BaseResponse<T>`
-- global exception handler
-- custom bad request / not found exceptions
-
-### User
-- `User` entity
-- `UserRepository`
-- `UserStatus` enum
-
-### Role
-- `Role` enum
-
-### Security
-- `SecurityConfig`
-- public `/health` endpoint
-- protected backend endpoint structure
-
-### Auth
-- `RegisterRequest`
-- `VerifyEmailOtpRequest`
-- `AuthController`
-- `AuthService`
-- `AuthServiceImpl`
-- `EmailOtp` entity
-- `EmailOtpRepository`
-- `PasswordConfig`
+**Modular Monolith** — one Spring Boot app, domain-based packages. No microservices.
 
 ---
 
-## Current API Design
+## Local Setup
 
-### Health
+### Prerequisites
+- Java 21
+- Maven
+- Docker Desktop
 
-```http
-GET /health
+### Start Database
+```bash
+docker-compose up -d
 ```
 
-### Registration
-
-```http
-POST /api/v1/auth/register
+### Run Backend
+```bash
+./mvnw spring-boot:run
 ```
 
-### Email OTP Verification
-
-```http
-POST /api/v1/auth/verify-email-otp
+### Swagger UI
+```
+http://localhost:8080/swagger-ui/index.html
 ```
 
 ---
 
-## API Response Format
+## Database
 
-All APIs should follow the same response wrapper:
+| Config | Value |
+|---|---|
+| Host | localhost |
+| Port | 5433 (5432 was already occupied) |
+| Database | dwb_db |
+| Username | postgres |
+| Password | postgres |
+
+### Connect via psql
+```bash
+PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d dwb_db
+```
+
+---
+
+## Package Structure
+
+```
+src/main/java/com/dwb/
+│
+├── auth/
+│   ├── login/
+│   │   ├── controller/   LoginController.java
+│   │   ├── dto/          LoginRequest, LoginResponse, SendPhoneLoginOtpRequest, VerifyPhoneLoginOtpRequest
+│   │   └── service/      LoginService, LoginServiceImpl, PhoneLoginService, PhoneLoginServiceImpl
+│   │
+│   └── register/
+│       ├── controller/   RegisterController.java
+│       ├── dto/          RegisterRequest, VerifyEmailOtpRequest
+│       ├── entity/       EmailOtp.java
+│       ├── repository/   EmailOtpRepository.java
+│       └── service/      RegisterService, RegisterServiceImpl
+│
+├── otp/
+│   ├── controller/   OtpController.java
+│   ├── dto/          SendPhoneOtpRequest, VerifyPhoneOtpRequest
+│   ├── entity/       PhoneOtp.java, PhoneOtpType.java (REGISTRATION / LOGIN)
+│   ├── repository/   PhoneOtpRepository.java
+│   └── service/      OtpService, OtpServiceImpl
+│
+├── storage/
+│   ├── service/   StorageService.java  (interface — swap local → cloud later)
+│   └── impl/      LocalStorageServiceImpl.java
+│
+├── user/
+│   ├── entity/      User.java, UserStatus.java
+│   └── repository/  UserRepository.java
+│
+├── role/
+│   └── entity/      Role.java  (RETAILER, CUSTOMER, TECHNICIAN, ADMIN)
+│
+├── security/
+│   ├── config/      SecurityConfig.java, SwaggerConfig.java
+│   └── jwt/
+│       ├── filter/  JwtAuthenticationFilter.java
+│       └── service/ JwtService.java
+│
+├── common/
+│   ├── controller/  HealthController.java
+│   ├── dto/         BaseResponse.java
+│   └── entity/      BaseEntity.java
+│
+├── config/      PasswordConfig.java
+└── exception/
+    ├── custom/  BadRequestException.java, ResourceNotFoundException.java
+    └── handler/ GlobalExceptionHandler.java
+```
+
+---
+
+## API Endpoints
+
+### Public (no token required)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Server health check |
+| POST | `/api/v1/auth/register` | Register new user (name, email, phone, password) |
+| POST | `/api/v1/auth/verify-email-otp` | Verify email OTP |
+| POST | `/api/v1/otp/send-phone-otp` | Send registration phone OTP |
+| POST | `/api/v1/otp/verify-phone-otp` | Verify registration phone OTP → account ACTIVE |
+| POST | `/api/v1/auth/login` | Email + password login → JWT |
+| POST | `/api/v1/auth/send-phone-login-otp` | Phone login step 1: send OTP |
+| POST | `/api/v1/auth/verify-phone-login-otp` | Phone login step 2: verify OTP → JWT |
+
+### Protected (Bearer token required)
+
+> All future retailer, customer, invoice, warranty, KYC APIs go here.
+
+---
+
+## Registration Flow
+
+```
+1. POST /api/v1/auth/register
+   → User created (status: PENDING, roles: empty)
+   → Email OTP printed to console
+
+2. POST /api/v1/auth/verify-email-otp
+   → emailVerified = true
+   → status stays PENDING
+
+3. POST /api/v1/otp/send-phone-otp
+   → Phone OTP printed to console
+
+4. POST /api/v1/otp/verify-phone-otp
+   → phoneVerified = true
+   → status = ACTIVE
+   → uniqueId generated: USR000001
+
+5. POST /api/v1/auth/login  (or phone login)
+   → Returns: { token, uniqueId, roles }
+```
+
+---
+
+## User Model
+
+### `users` table
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | BIGINT | Primary key |
+| full_name | VARCHAR | Not null |
+| email | VARCHAR | Unique |
+| phone_number | VARCHAR | Unique |
+| password | VARCHAR | BCrypt hashed |
+| status | ENUM | PENDING / ACTIVE / BLOCKED |
+| email_verified | BOOLEAN | Default false |
+| phone_number_verified | BOOLEAN | Default false |
+| unique_id | VARCHAR | USR000001 — generated after both verifications |
+| created_at | TIMESTAMP | Auto |
+| updated_at | TIMESTAMP | Auto |
+
+### `user_roles` table (separate from users)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| user_id | BIGINT | FK → users.id |
+| role | VARCHAR | RETAILER / CUSTOMER / TECHNICIAN / ADMIN |
+
+One user can have multiple roles. Roles are added when the user selects a role (e.g. completes retailer profile).
+
+---
+
+## JWT
+
+- Algorithm: HS256
+- Expiry: 1 hour
+- Secret: configured in `application.yml` under `app.jwt.secret`
+- Token payload includes: `email` + `roles`
+
+---
+
+## Response Format
+
+All APIs return the same wrapper:
 
 ```json
 {
   "success": true,
-  "message": "Some message",
+  "message": "Description",
   "data": {}
 }
 ```
 
-For errors:
-
+Errors:
 ```json
 {
   "success": false,
@@ -400,175 +232,23 @@ For errors:
 
 ---
 
-## Current Backend Flow
-
-### Retailer onboarding flow
-
-1. Retailer opens registration page
-2. Backend creates a pending user record
-3. Backend generates an email OTP
-4. User verifies OTP
-5. Backend activates the account
-6. Backend generates the role-based unique ID
-7. User logs in
-8. JWT is issued for protected APIs
-
-### Important Notes
-
-- Retailer onboarding is the first flow being built
-- Frontend design should drive the backend API shape
-- The backend is API-first
-- Responses should be frontend-friendly and consistent
-
----
-
-## Current Roadmap
-
-### Phase 1 — Foundation and Authentication Base
-- Finalize clean package structure
-- Base response and global exception handling
-- Request DTOs and validation
-- Retailer registration API
-- Email OTP generation and verification
-- Login API
-- JWT generation and validation
-
-### Phase 2 — Retailer Features
-- Retailer profile
-- Dashboard summary
-- Product / appliance registration
-- Customer onboarding
-- Warranty registration
-- Service request creation
-- Billing and invoice data
-
-### Phase 3 — Expansion
-- Customer-side flows
-- Technician assignment and service status
-- Notification system
-- Audit logs
-- Admin controls
-- Phone verification later if needed
-
----
-
-## What the Frontend Is Telling Us
-
-- The frontend starts with retailer registration
-- The current flow is: registration → email OTP verification → success → sign in
-- The backend should support a pending-to-active account lifecycle
-- The app should be responsive for desktop and mobile browsers
-- Backend response shape should match frontend needs
-- Backend APIs should be designed around frontend screens and forms
-
----
-
 ## Development Rules
 
-- Do not expose JPA entities directly in API responses
-- Use DTOs for request and response payloads
-- Keep business logic inside services
-- Keep database access inside repositories
-- Keep security logic inside the security package
-- Add validation annotations to request DTOs
-- Use BCrypt for password hashing
-- Use consistent response wrappers
-- Avoid overengineering
-- Avoid microservices for now
+- Business logic → service layer only
+- Database access → repository only
+- Request/response → DTOs only (never expose entities)
+- Validation → annotations on request DTOs
+- Passwords → BCrypt always
+- Secrets → `application.yml`, never hardcoded in Java
+- CORS → configured for `http://localhost:5173` (frontend dev server)
 
 ---
 
-## VS Code Extensions
+## VS Code Tips
 
-Recommended extensions:
+If Lombok shows red lines:
+1. Install "Lombok Annotations Support" extension
+2. Press `Cmd+Shift+P` → `Java: Clean Java Language Server Workspace`
+3. Reload VS Code
 
-- Extension Pack for Java
-- Spring Boot Extension Pack
-- Lombok Annotations Support for VS Code
-- Docker
-- GitLens
-- REST Client
-
----
-
-## Lombok Notes
-
-If Lombok shows red lines in VS Code:
-
-1. Install the Lombok VS Code extension
-2. Reload VS Code
-3. Run Maven clean build
-4. Clean the Java language server workspace
-5. Make sure annotation processing is enabled
-
----
-
-## Future Improvements
-
-- Swagger / OpenAPI documentation
-- Flyway database migrations
-- Dockerized backend app
-- Refresh token support
-- CI/CD pipeline
-- Production deployment
-- Phone verification later
-- Optional SMS provider integration later
-
----
-
-## Starter Prompt for a New Chat
-
-Use this when starting a new chat:
-
-```text
-We are building the DWD backend from scratch using Java 21, Spring Boot 3.5.0, Maven, PostgreSQL, Docker, and JWT authentication.
-
-Architecture:
-- Modular Monolith
-- Single Spring Boot app
-- Domain-based package structure
-- No microservices
-
-Current completed setup:
-- PostgreSQL running in Docker on port 5433
-- Spring Boot connected successfully
-- Health API working
-- SecurityConfig created
-- BaseEntity implemented
-- User entity implemented
-- Role enum implemented
-- UserStatus enum implemented
-- BaseResponse structure implemented
-- Global exception handling implemented
-- RegisterRequest and VerifyEmailOtpRequest DTOs implemented
-- AuthController and AuthService started
-- Email OTP entity and repository added
-
-Current user fields:
-- fullName
-- email
-- phoneNumber
-- password
-- role
-- status
-- emailVerified
-- phoneNumberVerified
-- uniqueId
-
-Authentication flow:
-Register → Email OTP Verification → Account Activation → Login → Dashboard
-
-Unique IDs:
-RET000001
-CUS000001
-TEC000001
-
-Next step:
-Continue auth flow, complete email OTP verification, account activation, unique ID generation, then login and JWT implementation.
-```
-
----
-
-## Current Status
-
-The backend foundation is ready and the next step is to complete the email OTP verification + account activation flow, then move on to login and JWT security.
+If IDE shows "package does not exist" errors on valid imports — same fix above. The code compiles correctly with Maven even when IDE shows false errors.
