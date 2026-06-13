@@ -11,15 +11,21 @@ import com.dwb.exception.custom.BadRequestException;
 import com.dwb.exception.custom.ResourceNotFoundException;
 import com.dwb.retailer.entity.RetailerProfile;
 import com.dwb.retailer.repository.RetailerProfileRepository;
+import com.dwb.role.entity.Role;
 import com.dwb.security.util.SecurityUtils;
+import com.dwb.user.entity.User;
+import com.dwb.user.entity.UserStatus;
 import com.dwb.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +36,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerOtpRepository customerOtpRepository;
     private final RetailerProfileRepository retailerProfileRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -40,16 +47,17 @@ public class CustomerServiceImpl implements CustomerService {
             throw new BadRequestException("A customer with this phone number already exists under your account");
         }
 
+        // Find or create the linked User account
+        User linkedUser = resolveUserAccount(request);
+
         Customer customer = new Customer();
         customer.setRetailerProfile(retailer);
+        customer.setUser(linkedUser);
         customer.setName(request.getName());
         customer.setPhone(request.getPhone());
         customer.setEmail(request.getEmail());
 
-        // First save to get the DB-generated id
         customer = customerRepository.save(customer);
-
-        // Generate uniqueId using the id
         customer.setUniqueId("RCUS" + String.format("%06d", customer.getId()));
         customer = customerRepository.save(customer);
 
@@ -65,13 +73,9 @@ public class CustomerServiceImpl implements CustomerService {
         RetailerProfile retailer = getRetailerProfile();
         String q = query.trim();
 
-        List<Customer> results;
-        // If query looks like an email (contains @), search by email; otherwise by phone
-        if (q.contains("@")) {
-            results = customerRepository.searchByEmail(retailer.getId(), q);
-        } else {
-            results = customerRepository.searchByPhone(retailer.getId(), q);
-        }
+        List<Customer> results = q.contains("@")
+                ? customerRepository.searchByEmail(retailer.getId(), q)
+                : customerRepository.searchByPhone(retailer.getId(), q);
 
         return results.stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -90,7 +94,6 @@ public class CustomerServiceImpl implements CustomerService {
         customerOtp.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         customerOtpRepository.save(customerOtp);
 
-        // Dev mode: print to console
         System.out.println("=== CUSTOMER OTP === Phone: " + customer.getPhone() + " | OTP: " + otp + " ===");
     }
 
@@ -123,9 +126,48 @@ public class CustomerServiceImpl implements CustomerService {
 
         customer.setPhoneVerified(true);
         customerRepository.save(customer);
+
+        // Mark phone as verified on the linked User account too
+        if (customer.getUser() != null) {
+            User user = customer.getUser();
+            user.setPhoneNumberVerified(true);
+            userRepository.save(user);
+        }
     }
 
     // ── Helpers ──
+
+    private User resolveUserAccount(CreateCustomerRequest request) {
+        Optional<User> existingByPhone = userRepository.findByPhoneNumber(request.getPhone());
+
+        if (existingByPhone.isPresent()) {
+            // Person already has an account — just add CUSTOMER role
+            User user = existingByPhone.get();
+            user.getRoles().add(Role.CUSTOMER);
+            return userRepository.save(user);
+        }
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BadRequestException("A user account with this email already exists");
+        }
+
+        // New person — create User account with CUSTOMER role
+        User user = new User();
+        user.setFullName(request.getName());
+        user.setEmail(request.getEmail());
+        user.setPhoneNumber(request.getPhone());
+        // Random password — customer must set their own via first-login flow
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setStatus(UserStatus.ACTIVE);
+        user.setPhoneNumberVerified(true); // phone OTP already done during customer creation
+        user.setEmailVerified(false);
+        user.setPasswordSet(false);
+        user.getRoles().add(Role.CUSTOMER);
+
+        User saved = userRepository.save(user);
+        saved.setUniqueId("USR" + String.format("%06d", saved.getId()));
+        return userRepository.save(saved);
+    }
 
     private RetailerProfile getRetailerProfile() {
         String email = SecurityUtils.getCurrentUserEmail();

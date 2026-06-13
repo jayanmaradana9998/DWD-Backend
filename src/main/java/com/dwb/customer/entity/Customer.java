@@ -2,6 +2,7 @@ package com.dwb.customer.entity;
 
 import com.dwb.common.entity.BaseEntity;
 import com.dwb.retailer.entity.RetailerProfile;
+import com.dwb.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,6 +12,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "customers")
 public class Customer extends BaseEntity {
+
+    // Linked User account — created automatically when retailer adds a customer
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "retailer_profile_id", nullable = false)

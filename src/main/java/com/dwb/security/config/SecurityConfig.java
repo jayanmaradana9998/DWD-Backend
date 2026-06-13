@@ -34,7 +34,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/health",
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/verify-email-otp",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/send-phone-login-otp",
+                                "/api/v1/auth/verify-phone-login-otp",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password",
                                 "/api/v1/otp/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",

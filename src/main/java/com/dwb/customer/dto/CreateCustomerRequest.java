@@ -16,6 +16,6 @@ public class CreateCustomerRequest {
     @Pattern(regexp = "^[6-9]\\d{9}$", message = "Enter a valid 10-digit Indian mobile number")
     private String phone;
 
-    // Optional
+    @NotBlank(message = "Email is required")
     private String email;
 }

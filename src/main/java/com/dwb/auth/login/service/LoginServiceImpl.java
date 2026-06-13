@@ -44,6 +44,6 @@ public class LoginServiceImpl implements LoginService {
                 .map(Role::name)
                 .collect(Collectors.toSet());
 
-        return new LoginResponse(token, user.getUniqueId(), roleNames);
+        return new LoginResponse(token, user.getUniqueId(), roleNames, user.getPasswordSet());
     }
 }

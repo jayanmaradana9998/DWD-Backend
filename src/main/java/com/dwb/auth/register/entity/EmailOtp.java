@@ -29,4 +29,8 @@ public class EmailOtp extends BaseEntity {
 
     @Column(nullable = false)
     private Integer attempts = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private EmailOtpType type = EmailOtpType.REGISTRATION;
 }
