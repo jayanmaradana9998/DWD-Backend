@@ -51,4 +51,9 @@ public class User extends BaseEntity {
     // Generated as USR000001 only after BOTH email + phone are verified
     @Column(unique = true)
     private String uniqueId;
+
+    // false = user hasn't set a real password yet (auto-created customer accounts)
+    // Frontend shows "set password" screen on first login when this is false
+    @Column(nullable = false)
+    private Boolean passwordSet = true;
 }

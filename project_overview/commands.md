@@ -137,3 +137,97 @@ app:
   upload:
     dir: ./uploads
 ```
+
+---
+
+## Admin User — Create via SQL
+
+Admin users cannot self-register. Run this script once to create the first admin.
+
+**Step 1 — Connect to DB:**
+```bash
+PGPASSWORD=postgres psql -h localhost -p 5433 -U postgres -d dwb_db
+```
+
+**Step 2 — Run the script:**
+```sql
+-- Create admin user
+-- Password below is BCrypt hash of: Admin@123
+INSERT INTO users (
+    created_at,
+    updated_at,
+    full_name,
+    email,
+    phone_number,
+    password,
+    status,
+    email_verified,
+    phone_number_verified,
+    unique_id
+) VALUES (
+    NOW(),
+    NOW(),
+    'Platform Admin',
+    'admin@dwb.com',
+    '0000000000',
+    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    'ACTIVE',
+    true,
+    true,
+    'USR000000'
+);
+
+-- Assign ADMIN role
+INSERT INTO user_roles (user_id, role)
+VALUES (
+    (SELECT id FROM users WHERE email = 'admin@dwb.com'),
+    'ADMIN'
+);
+
+-- Confirm it worked
+SELECT u.id, u.email, u.unique_id, u.status, ur.role
+FROM users u
+JOIN user_roles ur ON u.id = ur.user_id
+WHERE u.email = 'admin@dwb.com';
+```
+
+**Login with:**
+- Email: `admin@dwb.com`
+- Password: `Admin@123`
+
+**If you want a different password:**
+Use this site to generate a BCrypt hash (strength 10): https://bcrypt-generator.com
+Then replace the `$2a$10$...` hash in the INSERT above.
+
+---
+
+## KYC Management — Quick SQL Reference
+
+```sql
+-- View all KYC submissions
+SELECT k.id, u.email, k.full_name, k.id_type, k.status, k.rejection_reason, k.created_at
+FROM kyc_documents k
+JOIN users u ON k.user_id = u.id
+ORDER BY k.created_at DESC;
+
+-- View KYC file paths for a submission
+SELECT * FROM kyc_document_files WHERE kyc_document_id = 1;
+
+-- Manually approve KYC (testing only — use admin API in production)
+UPDATE kyc_documents SET status = 'APPROVED' WHERE id = 1;
+
+-- Manually reject KYC with reason (testing only)
+UPDATE kyc_documents SET status = 'REJECTED', rejection_reason = 'ID number invalid' WHERE id = 1;
+```
+
+---
+
+## Retailer Management — Quick SQL Reference
+
+```sql
+-- View all retailers
+SELECT r.id, r.retailer_unique_id, r.store_name, r.gst, r.pan, u.email, u.status
+FROM retailer_profiles r
+JOIN users u ON r.user_id = u.id
+ORDER BY r.created_at DESC;
+```

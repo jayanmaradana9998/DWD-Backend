@@ -89,7 +89,7 @@ public class PhoneLoginServiceImpl implements PhoneLoginService {
                 .map(Role::name)
                 .collect(Collectors.toSet());
 
-        LoginResponse loginResponse = new LoginResponse(token, user.getUniqueId(), roleNames);
+        LoginResponse loginResponse = new LoginResponse(token, user.getUniqueId(), roleNames, user.getPasswordSet());
 
         return new BaseResponse<>(true, "Login successful", loginResponse);
     }

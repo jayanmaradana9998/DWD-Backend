@@ -12,4 +12,5 @@ public class LoginResponse {
     private String token;
     private String uniqueId;
     private Set<String> roles;
+    private Boolean passwordSet;
 }
