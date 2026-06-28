@@ -1,32 +1,13 @@
 services:
-  postgres:
-    image: postgres:17
-    container_name: dwb-postgres
-
-    environment:
-      POSTGRES_DB: dwb_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-
-    ports:
-      - "5433:5432"
-
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   backend:
     build: .
     container_name: dwb-backend
-    depends_on:
-      - postgres
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dwb_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+
+    env_file:
+      - .env
+
     ports:
       - "8080:8080"
+
     volumes:
       - ./uploads:/app/uploads
-
-volumes:
-  postgres_data:
